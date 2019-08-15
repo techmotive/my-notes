@@ -266,3 +266,33 @@ egrep "^([0-9]{1,2}|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.   #第一组数字
 egrep "^[a-z0-9]([a-z0-9]*[-_]?[a-z0-9]+)*@
        ([a-z0-9]*[-_]?[a-z0-9]+)+[.][a-z]{2,3}([.][a-z]{2})?$"
 ```
+
+**大写的常量转驼峰**
+```
+# exit on error
+set -e
+
+# get all go files in project
+find . -name '*.go' | grep -v vendor|grep -v 'pb.go' > a
+
+
+# get all consts
+cat a | xargs awk '/const \(/,/\)/{print $0}; /const [A-Z_]+/{print $0}' |egrep -w '\b[A-Z_]+\b'|sed 's/const//g' |awk '{print $1}' |egrep -w '\b[A-Z_]+\b' > b
+
+# sort by length
+awk ' { print length, $0}' b|sort -nr | sed 's/.* //' |uniq > c
+
+# build camel case map, and make some adjustments
+to-camel-case -src c |sed 's/Errmsg/ErrMsg/g;s/Errcode/ErrCode/g;s/Username/UserName/g' | grep -v '/' > d
+
+# build sed script
+echo "" > e
+cat d | while read src dst
+do
+echo $src $dst
+    echo 's/\<'$src'\>/'$dst'/g' >> e
+done
+
+# run sed script for all go files
+cat a | xargs sed -i -f e
+```
